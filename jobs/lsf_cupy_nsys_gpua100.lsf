@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#BSUB -J wallheat_cupy_nsys
+#BSUB -q gpua100
+#BSUB -W 01:00
+#BSUB -n 4
+#BSUB -R "span[hosts=1]"
+#BSUB -R "rusage[mem=2048]"
+#BSUB -gpu "num=1:mode=exclusive_process"
+#BSUB -oo results/lsf_cupy_nsys_%J.out
+#BSUB -eo results/lsf_cupy_nsys_%J.err
+
+set -euo pipefail
+cd "$LS_SUBCWD"
+mkdir -p results figures /tmp/$USER/matplotlib
+export MPLCONFIGDIR=/tmp/$USER/matplotlib
+
+VENV_PATH="${VENV_PATH:-$LS_SUBCWD/.venv}"
+if [[ ! -f "$VENV_PATH/bin/activate" ]]; then
+  echo "Missing virtualenv activation script: $VENV_PATH/bin/activate" >&2
+  exit 2
+fi
+source "$VENV_PATH/bin/activate"
+
+N="${N:-20}"
+bash scripts/profile_cupy_nsys.sh "$N"

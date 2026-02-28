@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#BSUB -J wallheat_numba_cuda
+#BSUB -q gpua100
+#BSUB -W 01:30
+#BSUB -n 4
+#BSUB -R "span[hosts=1]"
+#BSUB -R "rusage[mem=2048]"
+#BSUB -gpu "num=1:mode=exclusive_process"
+#BSUB -oo results/lsf_numba_cuda_%J.out
+#BSUB -eo results/lsf_numba_cuda_%J.err
+
+set -euo pipefail
+cd "$LS_SUBCWD"
+mkdir -p results figures /tmp/$USER/matplotlib
+export MPLCONFIGDIR=/tmp/$USER/matplotlib
+
+VENV_PATH="${VENV_PATH:-$LS_SUBCWD/.venv}"
+if [[ ! -f "$VENV_PATH/bin/activate" ]]; then
+  echo "Missing virtualenv activation script: $VENV_PATH/bin/activate" >&2
+  exit 2
+fi
+source "$VENV_PATH/bin/activate"
+
+N="${N:-40}"
+MAX_ITER="${MAX_ITER:-2000}"
+python scripts/run_numba_cuda.py "$N" --max-iter "$MAX_ITER" --output-csv "results/numba_cuda_stats_${N}.csv"

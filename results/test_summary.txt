@@ -1,0 +1,5 @@
+Rows: 2
+Average mean temperature: 12.5062
+Average std temperature: 6.0893
+Buildings with >=50% area above 18C: 0
+Buildings with >=50% area below 15C: 2
