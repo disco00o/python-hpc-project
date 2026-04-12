@@ -17,12 +17,8 @@ export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 
-VENV_PATH="${VENV_PATH:-$LS_SUBCWD/.venv}"
-if [[ ! -f "$VENV_PATH/bin/activate" ]]; then
-  echo "Missing virtualenv activation script: $VENV_PATH/bin/activate" >&2
-  exit 2
-fi
-source "$VENV_PATH/bin/activate"
+source /dtu/projects/02613_2025/conda/conda_init.sh
+conda activate 02613_2026
 
 N="${N:-80}"
 python scripts/benchmark_speedup.py \

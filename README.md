@@ -17,8 +17,9 @@ The dataset path used by all scripts is:
 Run from repo root.
 
 ```bash
-make install
-make install-gpu
+source /dtu/projects/02613_2025/conda/conda_init.sh
+conda activate 02613_2026
+make venv
 make run-ref N=20
 make inspect N=4
 make visualize N=4 MAX_ITER=2000
@@ -29,6 +30,8 @@ make visualize N=4 MAX_ITER=2000
 Use one script for most variants:
 
 ```bash
+source /dtu/projects/02613_2025/conda/conda_init.sh
+conda activate 02613_2026
 python scripts/run_solver.py 40 --solver reference --workers 1
 python scripts/run_solver.py 40 --solver reference --workers 8 --schedule static
 python scripts/run_solver.py 40 --solver reference --workers 8 --schedule dynamic
@@ -73,10 +76,14 @@ make submit-numba-cuda N=40 MAX_ITER=2000
 make submit-cupy N=40
 ```
 
-The LSF scripts now use the project virtualenv via `VENV_PATH` (default: repo-local `.venv`).
+All `make` targets, the profiling helper, and the LSF scripts activate the shared DTU course conda environment with:
+
+```bash
+source /dtu/projects/02613_2025/conda/conda_init.sh
+conda activate 02613_2026
+```
 
 ## Notes
 
-- This environment currently has `numpy`, `matplotlib`, `pandas`; `numba`, `cupy`, and `line_profiler` are not installed.
-- For GPU tasks on HPC, install matching versions in your job environment before running GPU scripts.
-- For your GPU driver/CUDA (`Driver 580.126.20`, `CUDA 13.0`), `make install-gpu` defaults to `cupy-cuda13x`.
+- The shared course environment `02613_2026` is treated as pre-provisioned; this repo does not install packages into it.
+- GPU tasks assume matching CUDA-enabled packages are already available in `02613_2026`.

@@ -5,6 +5,9 @@ set -euo pipefail
 #   bash scripts/profile_cupy_nsys.sh 20
 # Produces an nsys profile under results/nsys_cupy.
 
+source /dtu/projects/02613_2025/conda/conda_init.sh
+conda activate 02613_2026
+
 N="${1:-20}"
 OUT="results/nsys_cupy"
 mkdir -p "$(dirname "$OUT")"
