@@ -9,6 +9,8 @@ source /dtu/projects/02613_2025/conda/conda_init.sh
 conda activate 02613_2026
 
 N="${1:-20}"
+MAX_ITER="${2:-20000}"
+ATOL="${3:-1e-4}"
 OUT="results/nsys_cupy"
 mkdir -p "$(dirname "$OUT")"
 
@@ -17,6 +19,6 @@ nsys profile \
   --trace=cuda,nvtx,osrt \
   --sample=none \
   --output="$OUT" \
-  python scripts/run_cupy.py "$N" --max-iter 2000 --output-csv results/cupy_profile.csv
+  python scripts/run_cupy.py "$N" --max-iter "$MAX_ITER" --atol "$ATOL" --output-csv results/cupy_profile.csv
 
 echo "Wrote ${OUT}.qdrep and ${OUT}.nsys-rep"
