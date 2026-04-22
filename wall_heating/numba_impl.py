@@ -1,4 +1,4 @@
-"""Numba-based solvers (CPU JIT and custom CUDA kernel)."""
+"""Numba-based solvers (exercise 7 CPU JIT + exercise 8 custom CUDA kernel)."""
 
 from __future__ import annotations
 
@@ -14,6 +14,16 @@ else:
     _NUMBA_IMPORT_ERROR = None
 
 
+def _require_numba() -> None:
+    if _NUMBA_IMPORT_ERROR is not None:
+        raise RuntimeError(
+            "Numba is not installed. Use the course GPU/Numba environment."
+        ) from _NUMBA_IMPORT_ERROR
+
+
+# ---------------------------------------------------------------------
+# Exercise 7: CPU JIT solution
+# ---------------------------------------------------------------------
 if njit is not None:
 
     @njit(cache=True)
@@ -23,13 +33,19 @@ if njit is not None:
         max_iter: int,
         atol: float,
     ) -> np.ndarray:
-        """CPU kernel with row-major memory access for better cache usage."""
+        """
+        CPU JIT Jacobi solver.
+
+        Outer loop over rows and inner loop over columns gives row-major
+        access, which matches NumPy's memory layout well.
+        """
         current = u0.copy()
         nxt = u0.copy()
         rows, cols = current.shape
 
         for _ in range(max_iter):
             delta = 0.0
+
             for i in range(1, rows - 1):
                 for j in range(1, cols - 1):
                     if interior_mask[i - 1, j - 1]:
@@ -47,16 +63,42 @@ if njit is not None:
                         nxt[i, j] = current[i, j]
 
             current, nxt = nxt, current
+
             if delta < atol:
                 break
 
         return current
 
 
+def jacobi_numba_cpu(
+    u: np.ndarray,
+    interior_mask: np.ndarray,
+    max_iter: int,
+    atol: float = 1e-6,
+) -> np.ndarray:
+    """Exercise 7: drop-in CPU JIT replacement for the reference Jacobi solver."""
+    _require_numba()
+    return _jacobi_numba_cpu_kernel(u, interior_mask, max_iter, atol)
+
+
+# ---------------------------------------------------------------------
+# Exercise 8: custom CUDA kernel solution
+# ---------------------------------------------------------------------
+if cuda is not None:
+
     @cuda.jit
-    def _jacobi_cuda_step(current: np.ndarray, nxt: np.ndarray, interior_mask: np.ndarray) -> None:
-        """One Jacobi iteration for interior region (synchronization happens between launches)."""
-        i, j = cuda.grid(2)
+    def _jacobi_cuda_step(
+        current: np.ndarray,
+        nxt: np.ndarray,
+        interior_mask: np.ndarray,
+    ) -> None:
+        """
+        Perform exactly one Jacobi iteration on the GPU.
+
+        Use j, i = cuda.grid(2) so the x dimension maps to columns.
+        That matches row-major array layout better on GPU.
+        """
+        j, i = cuda.grid(2)
         rows, cols = current.shape
 
         if 1 <= i < rows - 1 and 1 <= j < cols - 1:
@@ -67,35 +109,20 @@ if njit is not None:
                     + current[i - 1, j]
                     + current[i + 1, j]
                 )
-            else:
-                nxt[i, j] = current[i, j]
-
-
-def _require_numba() -> None:
-    if _NUMBA_IMPORT_ERROR is not None:
-        raise RuntimeError(
-            "Numba is not installed. Install with 'pip install numba' in your HPC environment."
-        ) from _NUMBA_IMPORT_ERROR
-
-
-def jacobi_numba_cpu(
-    u: np.ndarray,
-    interior_mask: np.ndarray,
-    max_iter: int,
-    atol: float = 1e-6,
-) -> np.ndarray:
-    """Drop-in replacement for the reference Jacobi function using CPU JIT."""
-    _require_numba()
-    return _jacobi_numba_cpu_kernel(u, interior_mask, max_iter, atol)
+            # For non-interior points we do nothing:
+            # both current and nxt were initialized from the same input,
+            # so walls and outside-building points remain fixed.
 
 
 def jacobi_numba_cuda(
     u: np.ndarray,
     interior_mask: np.ndarray,
     max_iter: int,
-    atol: float = 0.0,  # ignored to keep same signature as other solvers
 ) -> np.ndarray:
-    """Run fixed-iteration Jacobi on GPU with a custom Numba CUDA kernel."""
+    """
+    Exercise 8: helper function that repeatedly launches a single-iteration
+    CUDA kernel. No atol / early stopping, per assignment instructions.
+    """
     _require_numba()
     if cuda is None:
         raise RuntimeError("Numba CUDA support is unavailable.")
@@ -104,15 +131,17 @@ def jacobi_numba_cuda(
     nxt_d = cuda.to_device(np.asarray(u))
     mask_d = cuda.to_device(np.asarray(interior_mask, dtype=np.bool_))
 
-    threads_per_block = (16, 16)
+    # x dimension = columns, y dimension = rows
+    threads_per_block = (32, 16)
     blocks_per_grid = (
-        (u.shape[0] + threads_per_block[0] - 1) // threads_per_block[0],
-        (u.shape[1] + threads_per_block[1] - 1) // threads_per_block[1],
+        (u.shape[1] + threads_per_block[0] - 1) // threads_per_block[0],
+        (u.shape[0] + threads_per_block[1] - 1) // threads_per_block[1],
     )
 
     for _ in range(max_iter):
-        _jacobi_cuda_step[blocks_per_grid, threads_per_block](current_d, nxt_d, mask_d)
+        _jacobi_cuda_step[blocks_per_grid, threads_per_block](
+            current_d, nxt_d, mask_d
+        )
         current_d, nxt_d = nxt_d, current_d
 
-    cuda.synchronize()
     return current_d.copy_to_host()
